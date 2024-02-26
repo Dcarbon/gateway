@@ -71,6 +71,11 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		utils.StringEnv(gutils.ISVISM, "localhost:4031"),
 		pb.RegisterISMServiceHandler,
 	)
+	mux.Register(
+		gutils.ISVAUTH,
+		utils.StringEnv(gutils.ISVAUTH, "localhost:4005"),
+		pb.RegisterAuthServiceHandler,
+	)
 
 	if swgDocPath != "" {
 		raw, err := os.ReadFile(swgDocPath)
@@ -79,7 +84,7 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		}
 
 		// mux.swaggerDoc = string(raw)
-		mux.swaggerDoc = fmt.Sprintf(`{"host": "%s",`, swaggerHost) + string(raw[1:])
+		mux.swaggerDoc = fmt.Sprintf(`{"host": "%s",`, swaggerHost) + string(raw[0:])
 	}
 
 	return mux, nil
