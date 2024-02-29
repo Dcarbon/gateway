@@ -47,7 +47,6 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 
 	mux.HandlePath(http.MethodGet, "/api/v1.1/iots/geojson", mux.GetGeoJson)
 	mux.HandlePath(http.MethodGet, "/api/v1.1/dcarbon.json", mux.GetSwagger)
-
 	mux.Register(
 		gutils.ISVIotInfo,
 		utils.StringEnv(gutils.ISVIotInfo, "localhost:4002"),
@@ -76,7 +75,11 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		utils.StringEnv(gutils.ISVAUTH, "localhost:4005"),
 		pb.RegisterAuthServiceHandler,
 	)
-
+	mux.Register(
+		gutils.ISVUser,
+		utils.StringEnv(gutils.ISVUser, "localhost:4006"),
+		pb.RegisterUserInfoServiceHandler,
+	)
 	if swgDocPath != "" {
 		raw, err := os.ReadFile(swgDocPath)
 		if nil != err {
