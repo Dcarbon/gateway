@@ -45,14 +45,18 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		clients: container.NewSafeMap[string, *grpc.ClientConn](),
 	}
 
-	mux.HandlePath(http.MethodGet, "/api/v1.1/iots/geojson", mux.GetGeoJson)
+	mux.HandlePath(http.MethodGet, "/api/v1.1/iot/geojson", mux.GetGeoJson2) //mux.GetGeoJson
 	mux.HandlePath(http.MethodGet, "/api/v1.1/dcarbon.json", mux.GetSwagger)
 	mux.Register(
 		gutils.ISVIotInfo,
 		utils.StringEnv(gutils.ISVIotInfo, "localhost:4002"),
 		pb.RegisterIotServiceHandler,
 	)
-
+	mux.Register(
+		gutils.ISVIotMapListener,
+		utils.StringEnv(gutils.ISVIotMapListener, "localhost:4010"),
+		pb.RegisterIOTMapListenerServiceHandler,
+	)
 	mux.Register(
 		gutils.ISVIotOp,
 		utils.StringEnv(gutils.ISVIotOp, "localhost:4003"),
@@ -140,6 +144,32 @@ func (s *Serve) GetGeoJson(w http.ResponseWriter, r *http.Request, pathParams ma
 
 	iotService := pb.NewIotServiceClient(cc)
 	data, err := iotService.GetIotPositions(context.TODO(), &pb.RIotGetList{})
+	if nil != err {
+		w.WriteHeader(400)
+		aidh.SendJSON(w, 500, err)
+		return
+	}
+
+	var featureCollection = geojson.NewFeatureCollection()
+	for _, loc := range data.Data {
+		var feature = geojson.NewFeature(&orb.Point{loc.Position.Longitude, loc.Position.Latitude})
+		feature.Properties = make(geojson.Properties)
+		feature.Properties["id"] = loc.Id
+		featureCollection.Append(feature)
+	}
+	aidh.SendJSON(w, 200, featureCollection)
+}
+
+func (s *Serve) GetGeoJson2(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+	cc, ok := s.clients.Get(gutils.ISVIotMapListener)
+	if !ok {
+		w.WriteHeader(400)
+		aidh.SendJSON(w, 500, gutils.ErrServiceNotAvailable("IotMapListener"))
+		return
+	}
+
+	iotService := pb.NewIOTMapListenerServiceClient(cc)
+	data, err := iotService.GetIotMapListenerPositions(context.TODO(), &pb.RIotMapGetList{})
 	if nil != err {
 		w.WriteHeader(400)
 		aidh.SendJSON(w, 500, err)
