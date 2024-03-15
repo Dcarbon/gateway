@@ -45,7 +45,7 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		clients: container.NewSafeMap[string, *grpc.ClientConn](),
 	}
 
-	mux.HandlePath(http.MethodGet, "/api/v1.1/iot/geojson", mux.GetGeoJson2) //mux.GetGeoJson
+	mux.HandlePath(http.MethodGet, "/api/v1.1/iot/geojson", mux.GetGeoJson) //mux.GetGeoJson
 	mux.HandlePath(http.MethodGet, "/api/v1.1/dcarbon.json", mux.GetSwagger)
 	mux.Register(
 		gutils.ISVIotInfo,
