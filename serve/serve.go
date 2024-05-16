@@ -44,8 +44,7 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		),
 		clients: container.NewSafeMap[string, *grpc.ClientConn](),
 	}
-	fmt.Println("/api/v1.1/iot/geojson")
-	mux.HandlePath(http.MethodGet, "/api/v1.1/iot/geojson", mux.GetGeoJson) //mux.GetGeoJson
+	mux.HandlePath(http.MethodGet, "/api/v1.1/iot/geojson", mux.GetGeoJson2) //mux.GetGeoJson
 	mux.HandlePath(http.MethodGet, "/api/v1.1/dcarbon.json", mux.GetSwagger)
 	mux.Register(
 		gutils.ISVIotInfo,
@@ -74,16 +73,22 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		utils.StringEnv(gutils.ISVISM, "localhost:4031"),
 		pb.RegisterISMServiceHandler,
 	)
+
 	mux.Register(
-		gutils.ISVAUTH,
-		utils.StringEnv(gutils.ISVAUTH, "localhost:4005"),
-		pb.RegisterAuthServiceHandler,
+		gutils.ISVIotMapListener,
+		utils.StringEnv(gutils.ISVIotMapListener, "localhost:4010"),
+		pb.RegisterIOTMapListenerServiceHandler,
 	)
-	mux.Register(
-		gutils.ISVUser,
-		utils.StringEnv(gutils.ISVUser, "localhost:4006"),
-		pb.RegisterUserInfoServiceHandler,
-	)
+	// mux.Register(
+	// 	gutils.ISVAUTH,
+	// 	utils.StringEnv(gutils.ISVAUTH, "localhost:4005"),
+	// 	pb.RegisterAuthServiceHandler,
+	// )
+	// mux.Register(
+	// 	gutils.ISVUser,
+	// 	utils.StringEnv(gutils.ISVUser, "localhost:4006"),
+	// 	pb.RegisterUserInfoServiceHandler,
+	// )
 	mux.Register(
 		gutils.ISVProjects,
 		utils.StringEnv(gutils.ISVProjects, "localhost:4012"),
@@ -165,31 +170,31 @@ func (s *Serve) GetGeoJson(w http.ResponseWriter, r *http.Request, pathParams ma
 	aidh.SendJSON(w, 200, featureCollection)
 }
 
-// func (s *Serve) GetGeoJson2(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
-// 	cc, ok := s.clients.Get(gutils.ISVIotMapListener)
-// 	if !ok {
-// 		w.WriteHeader(400)
-// 		aidh.SendJSON(w, 500, gutils.ErrServiceNotAvailable("IotMapListener"))
-// 		return
-// 	}
+func (s *Serve) GetGeoJson2(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+	cc, ok := s.clients.Get(gutils.ISVIotMapListener)
+	if !ok {
+		w.WriteHeader(400)
+		aidh.SendJSON(w, 500, gutils.ErrServiceNotAvailable("IotMapListener"))
+		return
+	}
 
-// 	iotService := pb.NewIOTMapListenerServiceClient(cc)
-// 	data, err := iotService.GetIotMapListenerPositions(context.TODO(), &pb.RIotMapGetList{})
-// 	if nil != err {
-// 		w.WriteHeader(400)
-// 		aidh.SendJSON(w, 500, err)
-// 		return
-// 	}
+	iotService := pb.NewIOTMapListenerServiceClient(cc)
+	data, err := iotService.GetIotMapListenerPositions(context.TODO(), &pb.RIotMapGetList{})
+	if nil != err {
+		w.WriteHeader(400)
+		aidh.SendJSON(w, 500, err.Error())
+		return
+	}
 
-// 	var featureCollection = geojson.NewFeatureCollection()
-// 	for _, loc := range data.Data {
-// 		var feature = geojson.NewFeature(&orb.Point{loc.Position.Longitude, loc.Position.Latitude})
-// 		feature.Properties = make(geojson.Properties)
-// 		feature.Properties["id"] = loc.Id
-// 		featureCollection.Append(feature)
-// 	}
-// 	aidh.SendJSON(w, 200, featureCollection)
-// }
+	var featureCollection = geojson.NewFeatureCollection()
+	for _, loc := range data.Data {
+		var feature = geojson.NewFeature(&orb.Point{loc.Position.Longitude, loc.Position.Latitude})
+		feature.Properties = make(geojson.Properties)
+		feature.Properties["id"] = loc.Id
+		featureCollection.Append(feature)
+	}
+	aidh.SendJSON(w, 200, featureCollection)
+}
 
 func (s *Serve) GetSwagger(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 	// aidh.SendJSON(w, 200, s.swaggerDoc)
