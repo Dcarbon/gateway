@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Dcarbon/arch-proto/pb"
@@ -225,11 +224,17 @@ func (s *Serve) handleFileUpload(w http.ResponseWriter, r *http.Request, params 
 	}
 	defer f.Close()
 	// Create a temporary file to store the uploaded file
-	tempFile, err := os.CreateTemp("", fmt.Sprintf("upload-*.%s", strings.Split(header.Header.Get("Content-Type"), "/")[1]))
+	// tempFile, err := os.CreateTemp("", fmt.Sprintf("upload-*.%s", strings.Split(header.Header.Get("Content-Type"), "/")[1]))
+	// if err != nil {
+	// 	aidh.SendJSON(w, http.StatusInternalServerError, fmt.Sprintf("failed to create temp file: %s", err.Error()))
+	// 	return
+	// }
+	tempFile, err := os.Create(header.Filename)
 	if err != nil {
 		aidh.SendJSON(w, http.StatusInternalServerError, fmt.Sprintf("failed to create temp file: %s", err.Error()))
 		return
 	}
+	defer os.Remove(header.Filename)
 	defer tempFile.Close()
 	// Copy the uploaded file to the temporary file
 	if _, err := io.Copy(tempFile, f); err != nil {
@@ -246,7 +251,7 @@ func (s *Serve) handleFileUpload(w http.ResponseWriter, r *http.Request, params 
 	// Add the image to the project
 	image, err := prjService.AddImage(context.TODO(), &pb.RPAddImage{
 		ProjectId: int64(id),
-		Image:     tempFile.Name(),
+		Image:     "../gateway/" + tempFile.Name(),
 	})
 
 	if err != nil {
