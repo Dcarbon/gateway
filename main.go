@@ -7,7 +7,7 @@ import (
 	"github.com/Dcarbon/go-shared/libs/utils"
 )
 
-var docFile = utils.StringEnv("DOC_FILE", "static/api.swagger.json")
+var docFile = utils.StringEnv("DOC_FILE", "../arch-proto/swagger/api.swagger.json")
 
 // var docFile = utils.StringEnv("DOC_FILE", "static/petstore.json")
 

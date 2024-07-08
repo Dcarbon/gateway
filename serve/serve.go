@@ -3,9 +3,12 @@ package serve
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Dcarbon/arch-proto/pb"
@@ -23,6 +26,8 @@ import (
 )
 
 var swaggerHost = utils.StringEnv("SWAGGER_HOST", "dev01.viet-tin.com")
+
+const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MDEzNjczNDEsIkF1dGgiOnsiSWQiOjEsIlJvbGUiOiIiLCJGaXJzdE5hbWUiOiIiLCJMYXN0TmFtZSI6IiIsIlVzZXJuYW1lIjoiVGVzdCJ9fQ.RazlBAfn_nmt47GMSUHE3TXq2f4_mR7KvsXodeQ7Tgo"
 
 type RegisterServiceFn[T any] func(context.Context, *runtime.ServeMux, *T) error
 
@@ -46,16 +51,17 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 	}
 	mux.HandlePath(http.MethodGet, "/api/v1.1/iot/geojson", mux.GetGeoJson2) //mux.GetGeoJson
 	mux.HandlePath(http.MethodGet, "/api/v1.1/dcarbon.json", mux.GetSwagger)
+	mux.HandlePath(http.MethodPost, "/api/v1.1/project/upload", mux.handleFileUpload)
 	mux.Register(
 		gutils.ISVIotInfo,
 		utils.StringEnv(gutils.ISVIotInfo, "localhost:4002"),
 		pb.RegisterIotServiceHandler,
 	)
-	// mux.Register(
-	// 	gutils.ISVIotMapListener,
-	// 	utils.StringEnv(gutils.ISVIotMapListener, "localhost:4010"),
-	// 	pb.RegisterIOTMapListenerServiceHandler,
-	// )
+	mux.Register(
+		gutils.ISVIotMapListener,
+		utils.StringEnv(gutils.ISVIotMapListener, "localhost:4010"),
+		pb.RegisterIOTMapListenerServiceHandler,
+	)
 	mux.Register(
 		gutils.ISVIotOp,
 		utils.StringEnv(gutils.ISVIotOp, "localhost:4003"),
@@ -202,4 +208,51 @@ func (s *Serve) GetSwagger(w http.ResponseWriter, r *http.Request, pathParams ma
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write([]byte(s.swaggerDoc))
+}
+
+func (s *Serve) handleFileUpload(w http.ResponseWriter, r *http.Request, params map[string]string) {
+	// Retrieve the ID from the form
+	id, err := strconv.Atoi(r.FormValue("id"))
+	if err != nil {
+		aidh.SendJSON(w, http.StatusBadRequest, fmt.Sprintf("invalid id: %s", err.Error()))
+		return
+	}
+	// Retrieve the file from the form
+	f, header, err := r.FormFile("file")
+	if err != nil {
+		aidh.SendJSON(w, http.StatusBadRequest, fmt.Sprintf("failed to get file 'file': %s", err.Error()))
+		return
+	}
+	defer f.Close()
+	// Create a temporary file to store the uploaded file
+	tempFile, err := os.CreateTemp("", fmt.Sprintf("upload-*.%s", strings.Split(header.Header.Get("Content-Type"), "/")[1]))
+	if err != nil {
+		aidh.SendJSON(w, http.StatusInternalServerError, fmt.Sprintf("failed to create temp file: %s", err.Error()))
+		return
+	}
+	defer tempFile.Close()
+	// Copy the uploaded file to the temporary file
+	if _, err := io.Copy(tempFile, f); err != nil {
+		aidh.SendJSON(w, http.StatusInternalServerError, fmt.Sprintf("failed to copy file content: %s", err.Error()))
+		return
+	}
+	// Get the project service client
+	cc, ok := s.clients.Get(gutils.ISVProjects)
+	if !ok {
+		aidh.SendJSON(w, http.StatusInternalServerError, gutils.ErrServiceNotAvailable("ProjectServer"))
+		return
+	}
+	prjService := pb.NewProjectServiceClient(cc)
+	// Add the image to the project
+	image, err := prjService.AddImage(context.TODO(), &pb.RPAddImage{
+		ProjectId: int64(id),
+		Image:     tempFile.Name(),
+	})
+
+	if err != nil {
+		aidh.SendJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// Send a successful response
+	aidh.SendJSON(w, http.StatusOK, image)
 }
