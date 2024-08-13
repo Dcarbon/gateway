@@ -99,6 +99,11 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		utils.StringEnv(gutils.ISVProjects, "localhost:4012"),
 		pb.RegisterProjectServiceHandler,
 	)
+	mux.Register(
+		gutils.ISNotification,
+		utils.StringEnv(gutils.ISNotification, "localhost:4099"),
+		pb.RegisterNotificationServiceHandler,
+	)
 	if swgDocPath != "" {
 		raw, err := os.ReadFile(swgDocPath)
 		if nil != err {
