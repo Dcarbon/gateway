@@ -100,6 +100,11 @@ func NewServeMux(swgDocPath string) (*Serve, error) {
 		pb.RegisterProjectServiceHandler,
 	)
 	mux.Register(
+		gutils.ISFinance,
+		utils.StringEnv(gutils.ISFinance, "localhost:4199"),
+		pb.RegisterFinanceServiceHandler,
+	)
+	mux.Register(
 		gutils.ISNotification,
 		utils.StringEnv(gutils.ISNotification, "localhost:4099"),
 		pb.RegisterNotificationServiceHandler,
