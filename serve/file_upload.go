@@ -60,7 +60,6 @@ func MakeRequest(fileName string, iotType int, file multipart.File) (*UploadResp
 	defer file.Close()
 	client := resty.New()
 	// Make the PATCH request
-	fmt.Println(file)
 	resp, err := client.R().
 		SetHeader("Authorization", "Bearer "+Authorization).
 		SetFormData(map[string]string{
