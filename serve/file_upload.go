@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Dcarbon/arch-proto/pb"
 	"github.com/Dcarbon/go-shared/gutils"
@@ -16,8 +17,8 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-var Host = utils.StringEnv("S3_UPLOAD_URL", "localhost:4031")
-var Authorization = utils.StringEnv("S3_UPLOAD_AUTHORIZATION", "localhost:4031")
+var Host = utils.StringEnv("S3_UPLOAD_URL", "localhost")
+var Authorization = utils.StringEnv("S3_UPLOAD_AUTHORIZATION", "localhost")
 
 type UploadResponse struct {
 	RequestId  string `json:"request_id"`
@@ -44,19 +45,19 @@ func (s *Serve) handleFileUpload(w http.ResponseWriter, r *http.Request, params 
 		aidh.SendJSON(w, http.StatusBadRequest, fmt.Sprintf("failed to get file 'file': %s", err.Error()))
 		return
 	}
-	fmt.Println(file)
-	response, err := MakeRequest(header.Filename, iotType, file)
+	response, err := MakeRequest(header.Filename, iotType, version, file)
 	if err != nil {
 		aidh.SendJSON(w, http.StatusBadRequest, err)
 		return
 	}
-	if err := s.SaveVersion(&pb.RIotSetVersion{IotType: int32(iotType), Version: version, Path: response.Data.Path}); err != nil {
+	relatePath := strings.SplitN(response.Data.RelativePath, "s3://", 2)
+	if err := s.SaveVersion(&pb.RIotSetVersion{IotType: int32(iotType), Version: version, Path: relatePath[1]}); err != nil {
 		aidh.SendJSON(w, http.StatusBadRequest, err)
 		return
 	}
 	aidh.SendJSON(w, http.StatusOK, "OK")
 }
-func MakeRequest(fileName string, iotType int, file multipart.File) (*UploadResponse, error) {
+func MakeRequest(fileName string, iotType int, version string, file multipart.File) (*UploadResponse, error) {
 	defer file.Close()
 	client := resty.New()
 	// Make the PATCH request
@@ -64,7 +65,7 @@ func MakeRequest(fileName string, iotType int, file multipart.File) (*UploadResp
 		SetHeader("Authorization", "Bearer "+Authorization).
 		SetFormData(map[string]string{
 			"secure": "public",
-			"key":    fmt.Sprintf("static/iot/ota/%d", iotType),
+			"key":    fmt.Sprintf("static/iot/ota/%d/%s", iotType, version),
 		}).
 		SetFileReader("file", fileName, file).
 		Patch(Host)
